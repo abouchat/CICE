@@ -706,7 +706,10 @@
 
       real (kind=dbl_kind) :: &
          u0 = 5e-5_dbl_kind    ! residual velocity for basal stress (m/s)
-         
+
+      real (kind=dbl_kind) :: & !#ab# residual on velocity
+         res
+
       character(len=*), parameter :: subname = '(stepu)'
 
       !-----------------------------------------------------------------
@@ -717,6 +720,8 @@
       call icepack_warnings_flush(nu_diag)
       if (icepack_warnings_aborted()) call abort_ice(error_message=subname, &
          file=__FILE__, line=__LINE__)
+
+      res = c0
 
       do ij =1, icellu
          i = indxui(ij)
@@ -763,7 +768,15 @@
           endif
          endif
 
+         res = res + (((uvel(i,j)-uold)**2.)+((vvel(i,j)-vold)**2.)) !#ab#
       enddo                     ! ij
+      write (nu_diag,*) 'res_u,',brlx*sqrt(res)
+!
+      if (ksub == ndte) then
+	write (nu_diag,*) '============================================'
+	write (nu_diag,*) '********************************************'
+	write (nu_diag,*) '============================================'
+      endif
 
       end subroutine stepu
 
@@ -987,7 +1000,7 @@
          if (strength(i,j) > puny) then
             ! ice internal pressure          
             sigP(i,j) = -p5*stressp_1(i,j) 
-            
+
             ! normalized principal stresses
             sig1(i,j) = (p5*(stressp_1(i,j) &
                       + sqrt(stressm_1(i,j)**2+c4*stress12_1(i,j)**2))) &

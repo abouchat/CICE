@@ -655,8 +655,8 @@
         csig12ne, csig12nw, csig12se, csig12sw    , &
         str12ew, str12we, str12ns, str12sn        , &
         strp_tmp, strm_tmp, tmp, divu_tmp         , &
-        tmpne, tmpnw, tmpsw, tmpse                , &               
-        P_repne, P_repnw, P_repse, P_repsw            ! replacement pressure
+        tmpne, tmpnw, tmpsw, tmpse, shear_tmp     , &
+        P_ne, P_nw, P_se, P_sw                        ! replacement pressure or ice strength, given the regularization
 
       character(len=*), parameter :: subname = '(stress)'
 
@@ -670,12 +670,15 @@
       character(len=char_len):: & ! #ab#
          capping  ! 'max' or 'add_min' or 'tanh', capping of the viscous coefficients
 
+      character(len=char_len):: & ! #ab#
+         regularization  ! 'RP' or 'noRP', choose if using replacement pressure or not.
 
       call icepack_query_parameters(pi_out=pi)
       phi    = pi/c6  ! angle of friction = 30 degrees
       sinphi = sin(phi)
 
-      capping = 'tanh'
+      capping        = 'add_min' ! 'max', 'add_min', or 'tanh'
+      regularization = 'RP'      ! 'RP', or 'noRP'
 
       !-----------------------------------------------------------------
       ! Initialize
@@ -739,16 +742,18 @@
          ! on last subcycle, save quantities for mechanical redistribution
          !-----------------------------------------------------------------
             if (ksub == ndte) then
-               divu(i,j) = p25*(divune + divunw + divuse + divusw) * tarear(i,j)
+               divu_tmp = p25*(divune + divunw + divuse + divusw) * tarear(i,j)
                tmp = p25*(Deltane + Deltanw + Deltase + Deltasw)   * tarear(i,j)
-               rdg_conv(i,j)  = -min(divu(i,j),c0)
-               rdg_shear(i,j) = p5*(tmp-abs(divu(i,j))) 
+               rdg_conv(i,j)  = -min(divu_tmp,c0)
+               rdg_shear(i,j) = p5*(tmp-abs(divu_tmp))
+	       divu(i,j) = divune * tarear(i,j)
 
                ! diagnostic only
                ! shear = sqrt(tension**2 + shearing**2)
-               shear(i,j) = p25*tarear(i,j)*sqrt( &
-                   (tensionne + tensionnw + tensionse + tensionsw)**2 &
+               shear_tmp = p25*tarear(i,j)*sqrt( &
+                    (tensionne + tensionnw + tensionse + tensionsw)**2 &
                    +  (shearne +   shearnw +   shearse +   shearsw)**2)
+               shear(i,j) = p25*tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)
 
             endif
 
@@ -843,10 +848,10 @@
                Msw = ((sinphi*(abs(divusw)-divusw))/(smin*tinyarea(i,j)))*tanh(smin*tinyarea(i,j)*(1/mshearsw))
                Mse = ((sinphi*(abs(divuse)-divuse))/(smin*tinyarea(i,j)))*tanh(smin*tinyarea(i,j)*(1/mshearse))
 
-               zetane = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/Deltane))
-               zetanw = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/Deltanw))
-               zetasw = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/Deltasw))
-               zetase = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/Deltase))
+               zetane = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/abs(divune)))
+               zetanw = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/abs(divunw)))
+               zetasw = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/abs(divusw)))
+               zetase = (p5*strength(i,j)/(dmin*tinyarea(i,j)))*tanh(dmin*tinyarea(i,j)*(1/abs(divuse)))
             endif
 
             Deltane = sqrt(divune**2 + Mne*(tensionne**2 + shearne**2))
@@ -854,31 +859,39 @@
             Deltasw = sqrt(divusw**2 + Msw*(tensionsw**2 + shearsw**2))
             Deltase = sqrt(divuse**2 + Mse*(tensionse**2 + shearse**2))
 
-            ! Replacement pressure
-            P_repne  = c2*zetane*abs(divune)
-            P_repnw  = c2*zetanw*abs(divunw)
-            P_repsw  = c2*zetasw*abs(divusw)
-            P_repse  = c2*zetase*abs(divuse)
+            if (trim(regularization) == 'RP') then
+               ! Replacement pressure
+               P_ne  = c2*zetane*abs(divune)
+               P_nw  = c2*zetanw*abs(divunw)
+               P_sw  = c2*zetasw*abs(divusw)
+               P_se  = c2*zetase*abs(divuse)
+           elseif (trim(regularization) == 'noRP') then
+               ! Pressure is ice strength
+               P_ne  = strength(i,j)
+               P_nw  = strength(i,j)
+               P_sw  = strength(i,j)
+               P_se  = strength(i,j)
+           endif
 
          !-----------------------------------------------------------------
          ! on last subcycle, save quantities for mechanical redistribution #ab#
          !-----------------------------------------------------------------
             if (ksub == ndte) then
-               tmpne = (c2*zetane*Deltane**2) / P_repne
-               tmpnw = (c2*zetanw*Deltanw**2) / P_repnw
-               tmpsw = (c2*zetasw*Deltasw**2) / P_repsw
-               tmpse = (c2*zetase*Deltase**2) / P_repse
+               tmpne = (c2*zetane*Deltane**2) / P_ne
+               tmpnw = (c2*zetanw*Deltanw**2) / P_nw
+               tmpsw = (c2*zetasw*Deltasw**2) / P_sw
+               tmpse = (c2*zetase*Deltase**2) / P_se
 
-               if (P_repne == 0.0) then
+               if (P_ne == 0.0) then
                   tmpne = 0.0
                endif
-               if  (P_repnw == 0.0) then
+               if  (P_nw == 0.0) then
                   tmpnw = 0.0
                endif
-               if  (P_repse == 0.0) then
+               if  (P_se == 0.0) then
                   tmpse = 0.0
                endif
-               if  (P_repsw == 0.0) then
+               if  (P_sw == 0.0) then
                   tmpsw = 0.0
                endif
 
@@ -890,9 +903,12 @@
 
                ! diagnostic only
                ! shear = sqrt(tension**2 + shearing**2)
-               shear(i,j) = p25*tarear(i,j)*sqrt( &
+               shear_tmp = p25*tarear(i,j)*sqrt( &
                     (tensionne + tensionnw + tensionse + tensionsw)**2 &
-                   +  (shearne +   shearnw +   shearse +   shearsw)**2)                    
+                   +  (shearne +   shearnw +   shearse +   shearsw)**2)
+               shear(i,j) = p25*tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)
+
+
             endif
 
          !-----------------------------------------------------------------
@@ -912,13 +928,13 @@
          ! the stresses for Mohr-Coulomb                     ! kg/s^2 #ab#
          ! (1) northeast, (2) northwest, (3) southwest, (4) southeast 
          !-----------------------------------------------------------------      
-            stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c0ne*(divune*(c1+Ktens)) - (P_repne*arlx1i)*(c1-Ktens)) &
+            stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c0ne*(divune*(c1+Ktens)) - (P_ne*arlx1i)*(c1-Ktens)) &
                           * denom1
-            stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c0nw*(divunw*(c1+Ktens)) - (P_repnw*arlx1i)*(c1-Ktens)) &
+            stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c0nw*(divunw*(c1+Ktens)) - (P_nw*arlx1i)*(c1-Ktens)) &
                           * denom1
-            stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c0sw*(divusw*(c1+Ktens)) - (P_repsw*arlx1i)*(c1-Ktens)) &
+            stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c0sw*(divusw*(c1+Ktens)) - (P_sw*arlx1i)*(c1-Ktens)) &
                           * denom1
-            stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c0se*(divuse*(c1+Ktens)) - (P_repse*arlx1i)*(c1-Ktens)) &
+            stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c0se*(divuse*(c1+Ktens)) - (P_se*arlx1i)*(c1-Ktens)) &
                           * denom1
 
             stressm_1(i,j) = (stressm_1(i,j)*(c1-arlx1i*revp) + c1ne*tensionne*(c1+Ktens)) * denom1

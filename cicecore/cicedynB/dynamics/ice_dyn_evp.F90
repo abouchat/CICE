@@ -905,10 +905,15 @@
 
             endif
 
-            Mne = (sinphi*(abs(divune)-divune))/mshearcapne
-            Mnw = (sinphi*(abs(divunw)-divunw))/mshearcapnw
-            Msw = (sinphi*(abs(divusw)-divusw))/mshearcapsw
-            Mse = (sinphi*(abs(divuse)-divuse))/mshearcapse
+!             Mne = (sinphi*(abs(divune)-divune))/mshearcapne
+!             Mnw = (sinphi*(abs(divunw)-divunw))/mshearcapnw
+!             Msw = (sinphi*(abs(divusw)-divusw))/mshearcapsw
+!             Mse = (sinphi*(abs(divuse)-divuse))/mshearcapse
+
+            Mne = (sinphi*(divucapne-divune))/mshearcapne
+            Mnw = (sinphi*(divucapnw-divunw))/mshearcapnw
+            Msw = (sinphi*(divucapsw-divusw))/mshearcapsw
+            Mse = (sinphi*(divucapse-divuse))/mshearcapse
 
             zetane = p5*strength(i,j)/divucapne
             zetanw = p5*strength(i,j)/divucapnw

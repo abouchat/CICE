@@ -503,35 +503,20 @@
          taubx    (i,j) = c0
          tauby    (i,j) = c0
 
-         if (revp==1) then               ! revised evp
-            stressp_1 (i,j) = c0
-            stressp_2 (i,j) = c0
-            stressp_3 (i,j) = c0
-            stressp_4 (i,j) = c0
-            stressm_1 (i,j) = c0
-            stressm_2 (i,j) = c0
-            stressm_3 (i,j) = c0
-            stressm_4 (i,j) = c0
-            stress12_1(i,j) = c0
-            stress12_2(i,j) = c0
-            stress12_3(i,j) = c0
-            stress12_4(i,j) = c0
-         else if (icetmask(i,j)==0) then ! classic evp
-            stressp_1 (i,j) = c0
-            stressp_2 (i,j) = c0
-            stressp_3 (i,j) = c0
-            stressp_4 (i,j) = c0
-            stressm_1 (i,j) = c0
-            stressm_2 (i,j) = c0
-            stressm_3 (i,j) = c0
-            stressm_4 (i,j) = c0
-            stress12_1(i,j) = c0
-            stress12_2(i,j) = c0
-            stress12_3(i,j) = c0
-            stress12_4(i,j) = c0
-         endif                  ! revp
-
-!          if (icetmask(i,j)==0) then
+!          if (revp==1) then               ! revised evp
+!             stressp_1 (i,j) = c0
+!             stressp_2 (i,j) = c0
+!             stressp_3 (i,j) = c0
+!             stressp_4 (i,j) = c0
+!             stressm_1 (i,j) = c0
+!             stressm_2 (i,j) = c0
+!             stressm_3 (i,j) = c0
+!             stressm_4 (i,j) = c0
+!             stress12_1(i,j) = c0
+!             stress12_2(i,j) = c0
+!             stress12_3(i,j) = c0
+!             stress12_4(i,j) = c0
+!          else if (icetmask(i,j)==0) then ! classic evp
 !             stressp_1 (i,j) = c0
 !             stressp_2 (i,j) = c0
 !             stressp_3 (i,j) = c0
@@ -545,6 +530,21 @@
 !             stress12_3(i,j) = c0
 !             stress12_4(i,j) = c0
 !          endif                  ! revp
+
+         if (icetmask(i,j)==0) then
+            stressp_1 (i,j) = c0
+            stressp_2 (i,j) = c0
+            stressp_3 (i,j) = c0
+            stressp_4 (i,j) = c0
+            stressm_1 (i,j) = c0
+            stressm_2 (i,j) = c0
+            stressm_3 (i,j) = c0
+            stressm_4 (i,j) = c0
+            stress12_1(i,j) = c0
+            stress12_2(i,j) = c0
+            stress12_3(i,j) = c0
+            stress12_4(i,j) = c0
+         endif                  ! revp
 
       enddo                     ! i
       enddo                     ! j

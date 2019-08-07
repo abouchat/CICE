@@ -785,8 +785,10 @@
          endif
 
          res = res + (((uvel(i,j)-uold)**2.)+((vvel(i,j)-vold)**2.)) !#ab#
+!          res = max(res,abs(uvel(i,j)-uold)) !#ab#
       enddo                     ! ij
-      write (nu_diag,*) 'res_u,',brlx*sqrt(res)
+      write (nu_diag,*) 'res_u,',brlx*sqrt(res)!#ab#
+!       write (nu_diag,*) 'res_u,',res     !#ab#
 !
       if (ksub == ndte) then
 	write (nu_diag,*) '============================================'

@@ -461,6 +461,26 @@
          !$OMP END PARALLEL DO
 
       enddo                     ! subcycling
+
+!       write (nu_diag,*) 'divune,', divune(37,110)    !#ab#
+!       write (nu_diag,*) 'divucapne,', divucapne(37,110)    !#ab#
+!       write (nu_diag,*) 'dmin,', dmin(37,110)    !#ab#
+!       write (nu_diag,*) 'tinyarea,', tinyarea(37,110)    !#ab#
+!       write (nu_diag,*) 'dmin*tinyarea,', dmin*tinyarea(37,110)!#ab#
+!
+!       write (nu_diag,*) 'divu_out,', divu(37,110)    !#ab#
+!       write (nu_diag,*) '1/tarea,', tarear(37,110)    !#ab#
+!
+!       write (nu_diag,*) 'mshearne,', mshearne(37,110)    !#ab#
+!       write (nu_diag,*) 'mshearcapne,', mshearcapne(37,110)    !#ab#
+!       write (nu_diag,*) 'smin,', smin*tinyarea(37,110)    !#ab#
+!       write (nu_diag,*) 'mshear_out,', shear(37,110)    !#ab#
+!
+!       write (nu_diag,*) 'Mne,', Mne(37,110)    !#ab#
+!       write (nu_diag,*) 'Deltane,', Deltane(37,110)    !#ab#
+
+
+
       endif  ! evp_kernel_ver
       call ice_timer_stop(timer_evp_2d)
 
@@ -664,11 +684,12 @@
       character(len=*), parameter :: subname = '(stress)'
 
       real (kind=dbl_kind) :: &
-         smin   = 1.0_dbl_kind  , &
+         smin   = 1.0_dbl_kind , &
          dmin   = 1.0_dbl_kind , &
-         pi                      , &
-         phi                     , &
-         sinphi
+         pi                    , &
+         phi                   , &
+         sinphi                , &
+         delta
 
       character(len=char_len):: & ! #ab#
          capping  ! 'max' or 'add_min' or 'tanh', capping of the viscous coefficients
@@ -679,8 +700,9 @@
       call icepack_query_parameters(pi_out=pi)
       phi    = pi/c6  ! angle of friction = 30 degrees
       sinphi = sin(phi)
+      delta  = p166
 
-      capping        = 'add_min' ! 'max', 'add_min', or 'tanh'
+      capping        = 'max' ! 'max', 'add_min', or 'tanh'
       regularization = 'RP'      ! 'RP', or 'noRP'
 
       !-----------------------------------------------------------------
@@ -858,6 +880,15 @@
 
             endif
 
+            if (i == 39) then
+               if (j == 112) then
+                  write (nu_diag,*) 'stress_I,', p5*stressp_1(i,j)/strength(i,j)    !#ab#
+                  write (nu_diag,*) 'stress_II,', (p5*sqrt(stressm_1(i,j)**2+c4*stress12_1(i,j)**2))/ strength(i,j) !#ab#
+                  write (nu_diag,*) 'divu,', divune * tarear(i,j)*86400.0    !#ab#
+                  write (nu_diag,*) 'shear,', tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)*86400.0    !#ab#
+               endif
+            endif
+
          !-----------------------------------------------------------------
          ! stresses for Mohr-Coulomb #ab#
          !-----------------------------------------------------------------                
@@ -905,114 +936,241 @@
 
             endif
 
-!             Mne = (sinphi*(abs(divune)-divune))/mshearcapne
-!             Mnw = (sinphi*(abs(divunw)-divunw))/mshearcapnw
-!             Msw = (sinphi*(abs(divusw)-divusw))/mshearcapsw
-!             Mse = (sinphi*(abs(divuse)-divuse))/mshearcapse
+! !             ! Bulk viscosity
+! !             zetane = p5*strength(i,j)/divucapne
+! !             zetanw = p5*strength(i,j)/divucapnw
+! !             zetasw = p5*strength(i,j)/divucapsw
+! !             zetase = p5*strength(i,j)/divucapse
 
-            Mne = (sinphi*(divucapne-divune))/mshearcapne
-            Mnw = (sinphi*(divucapnw-divunw))/mshearcapnw
-            Msw = (sinphi*(divucapsw-divusw))/mshearcapsw
-            Mse = (sinphi*(divucapse-divuse))/mshearcapse
+            if (trim(regularization) == 'RP') then
+! !                ! Replacement pressure
+! !                P_ne  = c2*zetane*abs(divune) ! = c0ne*abs(divune)
+! !                P_nw  = c2*zetanw*abs(divunw) ! = c0nw*abs(divunw)
+! !                P_sw  = c2*zetasw*abs(divusw) ! = c0sw*abs(divusw)
+! !                P_se  = c2*zetase*abs(divuse) ! = c0se*abs(divuse)
 
-            zetane = p5*strength(i,j)/divucapne
-            zetanw = p5*strength(i,j)/divucapnw
-            zetasw = p5*strength(i,j)/divucapsw
-            zetase = p5*strength(i,j)/divucapse
+               Mne = (sinphi*(abs(divune)-divune))/mshearcapne
+               Mnw = (sinphi*(abs(divunw)-divunw))/mshearcapnw
+               Msw = (sinphi*(abs(divusw)-divusw))/mshearcapsw
+               Mse = (sinphi*(abs(divuse)-divuse))/mshearcapse
+            elseif (trim(regularization) == 'noRP') then
+! !                ! Pressure is ice strength
+! !                P_ne  = strength(i,j) ! = c0ne*divucapne
+! !                P_nw  = strength(i,j) ! = c0nw*divucapnw
+! !                P_sw  = strength(i,j) ! = c0sw*divucapsw
+! !                P_se  = strength(i,j) ! = c0se*divucapse
+
+               Mne = (sinphi*(divucapne-divune))/mshearcapne
+               Mnw = (sinphi*(divucapnw-divunw))/mshearcapnw
+               Msw = (sinphi*(divucapsw-divusw))/mshearcapsw
+               Mse = (sinphi*(divucapse-divuse))/mshearcapse
+            endif
 
             Deltane = sqrt(divune**2 + Mne*(tensionne**2 + shearne**2))
             Deltanw = sqrt(divunw**2 + Mnw*(tensionnw**2 + shearnw**2))
             Deltasw = sqrt(divusw**2 + Msw*(tensionsw**2 + shearsw**2))
             Deltase = sqrt(divuse**2 + Mse*(tensionse**2 + shearse**2))
 
-            if (trim(regularization) == 'RP') then
-               ! Replacement pressure
-               P_ne  = c2*zetane*abs(divune) ! = c0ne*abs(divune)
-               P_nw  = c2*zetanw*abs(divunw) ! = c0nw*abs(divunw)
-               P_sw  = c2*zetasw*abs(divusw) ! = c0sw*abs(divusw)
-               P_se  = c2*zetase*abs(divuse) ! = c0se*abs(divuse)
-           elseif (trim(regularization) == 'noRP') then
-               ! Pressure is ice strength
-               P_ne  = strength(i,j) ! = c0ne*divucapne
-               P_nw  = strength(i,j) ! = c0nw*divucapnw
-               P_sw  = strength(i,j) ! = c0sw*divucapsw
-               P_se  = strength(i,j) ! = c0se*divucapse
-           endif
-
          !-----------------------------------------------------------------
          ! on last subcycle, save quantities for mechanical redistribution #ab#
          !-----------------------------------------------------------------
             if (ksub == ndte) then
-               tmpne = (c2*zetane*Deltane**2) / P_ne
-               tmpnw = (c2*zetanw*Deltanw**2) / P_nw
-               tmpsw = (c2*zetasw*Deltasw**2) / P_sw
-               tmpse = (c2*zetase*Deltase**2) / P_se
+               if (trim(regularization) == 'RP') then
+                  tmpne = (Deltane**2) / abs(divune)
+                  tmpnw = (Deltanw**2) / abs(divunw)
+                  tmpsw = (Deltasw**2) / abs(divusw)
+                  tmpse = (Deltase**2) / abs(divuse)
 
-               if (P_ne == 0.0) then
-                  tmpne = 0.0
-               endif
-               if  (P_nw == 0.0) then
-                  tmpnw = 0.0
-               endif
-               if  (P_se == 0.0) then
-                  tmpse = 0.0
-               endif
-               if  (P_sw == 0.0) then
-                  tmpsw = 0.0
+                  if (divune == 0.0) then
+                     tmpne = 0.0
+                  endif
+                  if  (divunw == 0.0) then
+                     tmpnw = 0.0
+                  endif
+                  if  (divuse == 0.0) then
+                     tmpse = 0.0
+                  endif
+                  if  (divusw == 0.0) then
+                     tmpsw = 0.0
+                  endif
+
+               elseif (trim(regularization) == 'noRP') then
+                  tmpne = (Deltane**2) / divucapne
+                  tmpnw = (Deltanw**2) / divucapnw
+                  tmpsw = (Deltasw**2) / divucapsw
+                  tmpse = (Deltase**2) / divucapse
                endif
 
                divu_tmp = p25*(divune + divunw + divuse + divusw) * tarear(i,j)
                tmp   = p25*(tmpne + tmpnw + tmpse + tmpsw)   * tarear(i,j)
                rdg_conv(i,j)  = -min(divu_tmp,c0)
                rdg_shear(i,j) = p5*(tmp-abs(divu_tmp))
-	       divu(i,j) = divune * tarear(i,j)
+               divu(i,j) = divune * tarear(i,j)
 
                ! diagnostic only
                ! shear = sqrt(tension**2 + shearing**2)
                shear_tmp = p25*tarear(i,j)*sqrt( &
-                    (tensionne + tensionnw + tensionse + tensionsw)**2 &
-                   +  (shearne +   shearnw +   shearse +   shearsw)**2)
-               shear(i,j) = p25*tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)
-
+                  (tensionne + tensionnw + tensionse + tensionsw)**2 &
+                  +  (shearne +   shearnw +   shearse +   shearsw)**2)
+               shear(i,j) = tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)
 
             endif
 
          !-----------------------------------------------------------------
          ! constants for stress formulation                   ! kg/s #ab#
          !-----------------------------------------------------------------
-            c0ne = c2*zetane*arlx1i
-            c0nw = c2*zetanw*arlx1i
-            c0sw = c2*zetasw*arlx1i
-            c0se = c2*zetase*arlx1i 
+            c0ne = strength(i,j)/divucapne ! = 2*zetane
+            c0nw = strength(i,j)/divucapnw ! = 2*zetanw
+            c0sw = strength(i,j)/divucapsw ! = 2*zetasw
+            c0se = strength(i,j)/divucapse ! = 2*zetase
 
-            c1ne = c0ne*Mne
-            c1nw = c0nw*Mnw
-            c1sw = c0sw*Msw
-            c1se = c0se*Mse
+            c1ne = c0ne*arlx1i ! = 2*zetane/alpha
+            c1nw = c0nw*arlx1i ! = 2*zetanw/alpha
+            c1sw = c0sw*arlx1i ! = 2*zetasw/alpha
+            c1se = c0se*arlx1i ! = 2*zetase/alpha
+
+            c0ne = c1ne*Mne ! = (2*zetane/alpha)*Mne
+            c0nw = c1nw*Mnw ! = (2*zetanw/alpha)*Mnw
+            c0sw = c1sw*Msw ! = (2*zetasw/alpha)*Msw
+            c0se = c1se*Mse ! = (2*zetase/alpha)*Mse
 
          !-----------------------------------------------------------------
          ! the stresses for Mohr-Coulomb                     ! kg/s^2 #ab#
-         ! (1) northeast, (2) northwest, (3) southwest, (4) southeast 
-         !-----------------------------------------------------------------      
-            stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c0ne*(divune*(c1+Ktens)) - (P_ne*arlx1i)*(c1-Ktens)) &
-                          * denom1
-            stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c0nw*(divunw*(c1+Ktens)) - (P_nw*arlx1i)*(c1-Ktens)) &
-                          * denom1
-            stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c0sw*(divusw*(c1+Ktens)) - (P_sw*arlx1i)*(c1-Ktens)) &
-                          * denom1
-            stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c0se*(divuse*(c1+Ktens)) - (P_se*arlx1i)*(c1-Ktens)) &
-                          * denom1
+         ! (1) northeast, (2) northwest, (3) southwest, (4) southeast
+         !-----------------------------------------------------------------
+            if (trim(regularization) == 'RP') then
+               stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c1ne*(divune*(c1+Ktens) - abs(divune)*(c1-Ktens))) &
+                           * denom1
+               stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c1nw*(divunw*(c1+Ktens) - abs(divunw)*(c1-Ktens))) &
+                           * denom1
+               stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c1sw*(divusw*(c1+Ktens) - abs(divusw)*(c1-Ktens))) &
+                           * denom1
+               stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c1se*(divuse*(c1+Ktens) - abs(divuse)*(c1-Ktens))) &
+                           * denom1
 
-            stressm_1(i,j) = (stressm_1(i,j)*(c1-arlx1i*revp) + c1ne*tensionne*(c1+Ktens)) * denom1
-            stressm_2(i,j) = (stressm_2(i,j)*(c1-arlx1i*revp) + c1nw*tensionnw*(c1+Ktens)) * denom1
-            stressm_3(i,j) = (stressm_3(i,j)*(c1-arlx1i*revp) + c1sw*tensionsw*(c1+Ktens)) * denom1
-            stressm_4(i,j) = (stressm_4(i,j)*(c1-arlx1i*revp) + c1se*tensionse*(c1+Ktens)) * denom1
+               stressm_1(i,j) = (stressm_1(i,j)*(c1-arlx1i*revp) + c0ne*tensionne*(c1+Ktens)) * denom1
+               stressm_2(i,j) = (stressm_2(i,j)*(c1-arlx1i*revp) + c0nw*tensionnw*(c1+Ktens)) * denom1
+               stressm_3(i,j) = (stressm_3(i,j)*(c1-arlx1i*revp) + c0sw*tensionsw*(c1+Ktens)) * denom1
+               stressm_4(i,j) = (stressm_4(i,j)*(c1-arlx1i*revp) + c0se*tensionse*(c1+Ktens)) * denom1
 
-            stress12_1(i,j) = (stress12_1(i,j)*(c1-arlx1i*revp) + c1ne*shearne*p5*(c1+Ktens)) * denom1
-            stress12_2(i,j) = (stress12_2(i,j)*(c1-arlx1i*revp) + c1nw*shearnw*p5*(c1+Ktens)) * denom1
-            stress12_3(i,j) = (stress12_3(i,j)*(c1-arlx1i*revp) + c1sw*shearsw*p5*(c1+Ktens)) * denom1
-            stress12_4(i,j) = (stress12_4(i,j)*(c1-arlx1i*revp) + c1se*shearse*p5*(c1+Ktens)) * denom1
+               stress12_1(i,j) = (stress12_1(i,j)*(c1-arlx1i*revp) + c0ne*shearne*p5*(c1+Ktens)) * denom1
+               stress12_2(i,j) = (stress12_2(i,j)*(c1-arlx1i*revp) + c0nw*shearnw*p5*(c1+Ktens)) * denom1
+               stress12_3(i,j) = (stress12_3(i,j)*(c1-arlx1i*revp) + c0sw*shearsw*p5*(c1+Ktens)) * denom1
+               stress12_4(i,j) = (stress12_4(i,j)*(c1-arlx1i*revp) + c0se*shearse*p5*(c1+Ktens)) * denom1
 
+            elseif (trim(regularization) == 'noRP') then
+               stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c1ne*(divune*(c1+Ktens) - divucapne*(c1-Ktens))) &
+                           * denom1
+               stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c1nw*(divunw*(c1+Ktens) - divucapnw*(c1-Ktens))) &
+                           * denom1
+               stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c1sw*(divusw*(c1+Ktens) - divucapsw*(c1-Ktens))) &
+                           * denom1
+               stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c1se*(divuse*(c1+Ktens) - divucapse*(c1-Ktens))) &
+                           * denom1
+
+               stressm_1(i,j) = (stressm_1(i,j)*(c1-arlx1i*revp) + c0ne*tensionne*(c1+Ktens)) * denom1
+               stressm_2(i,j) = (stressm_2(i,j)*(c1-arlx1i*revp) + c0nw*tensionnw*(c1+Ktens)) * denom1
+               stressm_3(i,j) = (stressm_3(i,j)*(c1-arlx1i*revp) + c0sw*tensionsw*(c1+Ktens)) * denom1
+               stressm_4(i,j) = (stressm_4(i,j)*(c1-arlx1i*revp) + c0se*tensionse*(c1+Ktens)) * denom1
+
+               stress12_1(i,j) = (stress12_1(i,j)*(c1-arlx1i*revp) + c0ne*shearne*p5*(c1+Ktens)) * denom1
+               stress12_2(i,j) = (stress12_2(i,j)*(c1-arlx1i*revp) + c0nw*shearnw*p5*(c1+Ktens)) * denom1
+               stress12_3(i,j) = (stress12_3(i,j)*(c1-arlx1i*revp) + c0sw*shearsw*p5*(c1+Ktens)) * denom1
+               stress12_4(i,j) = (stress12_4(i,j)*(c1-arlx1i*revp) + c0se*shearse*p5*(c1+Ktens)) * denom1
+            endif
+
+            if (i == 39) then
+               if (j == 112) then
+                  write (nu_diag,*) 'stress_I,', p5*stressp_1(i,j)/strength(i,j)    !#ab#
+                  write (nu_diag,*) 'stress_II,', (p5*sqrt(stressm_1(i,j)**2+c4*stress12_1(i,j)**2))/ strength(i,j) !#ab#
+                  write (nu_diag,*) 'divu,', divune * tarear(i,j)*86400.0    !#ab#
+                  write (nu_diag,*) 'shear,', tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)*86400.0    !#ab#
+               endif
+            endif
+
+! !          !-----------------------------------------------------------------
+! !          ! on last subcycle, save quantities for mechanical redistribution #ab#
+! !          !-----------------------------------------------------------------
+! !             if (ksub == ndte) then
+! !                tmpne = (c2*zetane*Deltane**2) / P_ne
+! !                tmpnw = (c2*zetanw*Deltanw**2) / P_nw
+! !                tmpsw = (c2*zetasw*Deltasw**2) / P_sw
+! !                tmpse = (c2*zetase*Deltase**2) / P_se
+! !
+! !                if (P_ne == 0.0) then
+! !                   tmpne = 0.0
+! !                endif
+! !                if  (P_nw == 0.0) then
+! !                   tmpnw = 0.0
+! !                endif
+! !                if  (P_se == 0.0) then
+! !                   tmpse = 0.0
+! !                endif
+! !                if  (P_sw == 0.0) then
+! !                   tmpsw = 0.0
+! !                endif
+! !
+! !                divu_tmp = p25*(divune + divunw + divuse + divusw) * tarear(i,j)
+! !                tmp   = p25*(tmpne + tmpnw + tmpse + tmpsw)   * tarear(i,j)
+! !                rdg_conv(i,j)  = -min(divu_tmp,c0)
+! !                rdg_shear(i,j) = p5*(tmp-abs(divu_tmp))
+! !              divu(i,j) = divune * tarear(i,j)
+! !
+! !                ! diagnostic only
+! !                ! shear = sqrt(tension**2 + shearing**2)
+! !                shear_tmp = p25*tarear(i,j)*sqrt( &
+! !                     (tensionne + tensionnw + tensionse + tensionsw)**2 &
+! !                    +  (shearne +   shearnw +   shearse +   shearsw)**2)
+! !                shear(i,j) = p25*tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)
+! !
+! !
+! !             endif
+! !
+! !          !-----------------------------------------------------------------
+! !          ! constants for stress formulation                   ! kg/s #ab#
+! !          !-----------------------------------------------------------------
+! !             c0ne = c2*zetane*arlx1i
+! !             c0nw = c2*zetanw*arlx1i
+! !             c0sw = c2*zetasw*arlx1i
+! !             c0se = c2*zetase*arlx1i
+! !
+! !             c1ne = c0ne*Mne
+! !             c1nw = c0nw*Mnw
+! !             c1sw = c0sw*Msw
+! !             c1se = c0se*Mse
+! !
+! !          !-----------------------------------------------------------------
+! !          ! the stresses for Mohr-Coulomb                     ! kg/s^2 #ab#
+! !          ! (1) northeast, (2) northwest, (3) southwest, (4) southeast
+! !          !-----------------------------------------------------------------
+! !             stressp_1(i,j) = (stressp_1(i,j)*(c1-arlx1i*revp) + c0ne*(divune*(c1+Ktens)) - (P_ne*arlx1i)*(c1-Ktens)) &
+! !                           * denom1
+! !             stressp_2(i,j) = (stressp_2(i,j)*(c1-arlx1i*revp) + c0nw*(divunw*(c1+Ktens)) - (P_nw*arlx1i)*(c1-Ktens)) &
+! !                           * denom1
+! !             stressp_3(i,j) = (stressp_3(i,j)*(c1-arlx1i*revp) + c0sw*(divusw*(c1+Ktens)) - (P_sw*arlx1i)*(c1-Ktens)) &
+! !                           * denom1
+! !             stressp_4(i,j) = (stressp_4(i,j)*(c1-arlx1i*revp) + c0se*(divuse*(c1+Ktens)) - (P_se*arlx1i)*(c1-Ktens)) &
+! !                           * denom1
+! !
+! !             stressm_1(i,j) = (stressm_1(i,j)*(c1-arlx1i*revp) + c1ne*tensionne*(c1+Ktens)) * denom1
+! !             stressm_2(i,j) = (stressm_2(i,j)*(c1-arlx1i*revp) + c1nw*tensionnw*(c1+Ktens)) * denom1
+! !             stressm_3(i,j) = (stressm_3(i,j)*(c1-arlx1i*revp) + c1sw*tensionsw*(c1+Ktens)) * denom1
+! !             stressm_4(i,j) = (stressm_4(i,j)*(c1-arlx1i*revp) + c1se*tensionse*(c1+Ktens)) * denom1
+! !
+! !             stress12_1(i,j) = (stress12_1(i,j)*(c1-arlx1i*revp) + c1ne*shearne*p5*(c1+Ktens)) * denom1
+! !             stress12_2(i,j) = (stress12_2(i,j)*(c1-arlx1i*revp) + c1nw*shearnw*p5*(c1+Ktens)) * denom1
+! !             stress12_3(i,j) = (stress12_3(i,j)*(c1-arlx1i*revp) + c1sw*shearsw*p5*(c1+Ktens)) * denom1
+! !             stress12_4(i,j) = (stress12_4(i,j)*(c1-arlx1i*revp) + c1se*shearse*p5*(c1+Ktens)) * denom1
+! !
+! !             if (i == 39) then
+! !                if (j == 112) then
+! !                   write (nu_diag,*) 'stress_I,', p5*stressp_1(i,j)/strength(i,j)    !#ab#
+! !                   write (nu_diag,*) 'stress_II,', (p5*sqrt(stressm_1(i,j)**2+c4*stress12_1(i,j)**2))/ strength(i,j) !#ab#
+! !                   write (nu_diag,*) 'divu,', divune * tarear(i,j)*86400.0    !#ab#
+! !                   write (nu_diag,*) 'shear,', tarear(i,j)*sqrt((tensionne)**2 + (shearne)**2)*86400.0    !#ab#
+! !                endif
+! !             endif
+! !
          endif
 
       !-----------------------------------------------------------------

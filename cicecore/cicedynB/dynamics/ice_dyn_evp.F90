@@ -93,7 +93,7 @@
       use ice_timers, only: timer_dynamics, timer_bound, &
           ice_timer_start, ice_timer_stop, timer_evp_1d, timer_evp_2d
       use ice_dyn_evp_1d
-      use ice_dyn_shared, only: evp_kernel_ver, yield_curve
+      use ice_dyn_shared, only: kevp_kernel, yield_curve
 
       real (kind=dbl_kind), intent(in) :: &
          dt      ! time step
@@ -704,7 +704,7 @@
       delta  = p166
 
       capping        = 'max' ! 'max', 'add_min', or 'tanh'
-      regularization = 'RP'      ! 'RP', or 'noRP'
+      regularization = 'noRP'      ! 'RP', or 'noRP'
 
       !-----------------------------------------------------------------
       ! Initialize
